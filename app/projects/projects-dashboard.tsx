@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { trackEvent } from "@/lib/analytics";
 
 type ProjectStatus = "Active" | "Completed" | "On Hold";
 
@@ -64,7 +65,7 @@ function formatBudget(value: number) {
   return money.format(value);
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCard({ project, onComplete }: { project: Project; onComplete: (id: number) => void }) {
   const remaining = project.budget - project.spent;
 
   return (
@@ -92,7 +93,7 @@ function ProjectCard({ project }: { project: Project }) {
       </div>
       <div className="mt-4 flex items-center justify-between sm:mt-0 sm:justify-end sm:gap-4">
         <div className="flex -space-x-2"><div className="flex size-7 items-center justify-center rounded-full border-2 border-white bg-[#252525] text-[9px] font-bold text-white">{project.initials[0]}</div><div className="flex size-7 items-center justify-center rounded-full border-2 border-white bg-[#e5ddd3] text-[9px] font-bold text-[#716a60]">+{project.members - 1}</div></div>
-        <button aria-label={`More options for ${project.name}`} className="rounded-lg p-2 text-[#8c887f] transition hover:bg-[#f0ede7] hover:text-[#252525]"><MoreHorizontal className="size-4" /></button>
+        <button onClick={() => onComplete(project.id)} aria-label={`Mark ${project.name} complete`} className="rounded-lg p-2 text-[#8c887f] transition hover:bg-[#f0ede7] hover:text-[#252525]"><MoreHorizontal className="size-4" /></button>
       </div>
     </article>
   );
@@ -109,6 +110,7 @@ export default function ProjectsDashboard() {
     const saved = window.localStorage.getItem("powerhouse-projects");
     if (saved) setProjects(JSON.parse(saved));
     setHydrated(true);
+    trackEvent("dashboard_viewed", { page: "projects" });
   }, []);
 
   useEffect(() => {
@@ -130,8 +132,14 @@ export default function ProjectsDashboard() {
     const budget = Number(form.get("budget") || 0);
     const newProject: Project = { id: Date.now(), name, client, initials: client.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(), color: "bg-orange-100 text-orange-700", status: "Active", progress: 0, budget, spent: 0, due: String(form.get("due") || "TBD"), members: 1 };
     setProjects((current) => [newProject, ...current]);
+    trackEvent("project_created", { project_name: name, client });
     setDialogOpen(false);
     event.currentTarget.reset();
+  }
+
+  function completeProject(id: number) {
+    setProjects((current) => current.map((project) => project.id === id ? { ...project, status: "Completed", progress: 100 } : project));
+    trackEvent("project_completed", { project_id: id });
   }
 
   return (
@@ -152,8 +160,8 @@ export default function ProjectsDashboard() {
           <div className="px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
             <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-sm font-medium text-[#d6593f]">Workspace / Projects</p><h2 className="mt-2 text-3xl font-semibold tracking-[-.04em] sm:text-4xl">Projects</h2><p className="mt-2 text-sm text-[#87847d]">Keep your work moving forward.</p></div><Dialog open={dialogOpen} onOpenChange={setDialogOpen}><DialogTrigger className="inline-flex h-11 items-center justify-center rounded-xl bg-[#d6593f] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_#d6593f] hover:bg-[#bb4933]"><Plus className="mr-2 size-4" />Add project</DialogTrigger><DialogContent className="rounded-2xl border-[#e4e0d8] bg-[#fbfaf7] sm:max-w-[480px]"><DialogHeader><DialogTitle className="text-xl">Add a new project</DialogTitle><DialogDescription className="text-[#87847d]">Create a project to start tracking delivery and budget.</DialogDescription></DialogHeader><form onSubmit={addProject} className="space-y-4 pt-3"><label className="block text-sm font-medium">Project name<input required name="name" placeholder="e.g. Summer campaign" className="mt-2 h-11 w-full rounded-xl border border-[#ddd9d0] bg-white px-3 text-sm outline-none focus:border-[#d6593f]" /></label><label className="block text-sm font-medium">Client<input required name="client" placeholder="e.g. Acme Inc." className="mt-2 h-11 w-full rounded-xl border border-[#ddd9d0] bg-white px-3 text-sm outline-none focus:border-[#d6593f]" /></label><div className="grid grid-cols-2 gap-3"><label className="block text-sm font-medium">Budget<input required min="0" name="budget" type="number" placeholder="12000" className="mt-2 h-11 w-full rounded-xl border border-[#ddd9d0] bg-white px-3 text-sm outline-none focus:border-[#d6593f]" /></label><label className="block text-sm font-medium">Due date<input name="due" type="date" className="mt-2 h-11 w-full rounded-xl border border-[#ddd9d0] bg-white px-3 text-sm outline-none focus:border-[#d6593f]" /></label></div><Button type="submit" className="mt-2 h-11 w-full rounded-xl bg-[#292928] font-semibold text-white hover:bg-[#3c3c3a]">Create project <Check className="ml-2 size-4" /></Button></form></DialogContent></Dialog></div>
             <div className="mt-9 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#292928] p-5 text-white"><div className="flex items-center justify-between"><p className="text-xs text-white/55">Active projects</p><FolderKanban className="size-4 text-[#f0a18e]" /></div><p className="mt-5 text-3xl font-semibold tracking-tight">{activeProjects}</p><p className="mt-1 text-xs text-white/50">{projects.length} total projects</p></div><div className="rounded-2xl border border-[#e4e0d8] bg-white p-5"><div className="flex items-center justify-between"><p className="text-xs text-[#87847d]">Total budget</p><CircleDollarSign className="size-4 text-[#d6593f]" /></div><p className="mt-5 text-3xl font-semibold tracking-tight">{formatBudget(totalBudget)}</p><p className="mt-1 text-xs text-[#87847d]">Across all projects</p></div><div className="rounded-2xl border border-[#e4e0d8] bg-white p-5"><div className="flex items-center justify-between"><p className="text-xs text-[#87847d]">Budget spent</p><Clock3 className="size-4 text-[#d6593f]" /></div><p className="mt-5 text-3xl font-semibold tracking-tight">{formatBudget(totalSpent)}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ebe8e1]"><div className="h-full w-[57%] rounded-full bg-[#e7a04b]" /></div></div></div>
-            <div className="mt-10 flex flex-col gap-4 border-b border-[#ddd9d0] pb-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-1 overflow-x-auto">{(["All", "Active", "Completed", "On Hold"] as const).map((item) => <button key={item} onClick={() => setFilter(item)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${filter === item ? "bg-[#292928] text-white" : "text-[#87847d] hover:bg-[#ebe8e1]"}`}>{item}</button>)}</div><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#aaa59b]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects" className="h-9 w-full rounded-lg border border-[#ddd9d0] bg-white pl-9 pr-8 text-xs outline-none focus:border-[#d6593f] sm:w-52" /><ChevronDown className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 rotate-[-90deg] text-[#aaa59b]" /></div></div>
-            <div className="mt-2 rounded-2xl border border-[#e4e0d8] bg-white px-5 sm:px-6"><div className="hidden border-b border-[#ebe8e1] py-4 text-[10px] font-bold uppercase tracking-[.15em] text-[#aaa59b] sm:grid sm:grid-cols-[minmax(0,1.5fr)_minmax(180px,1fr)_minmax(150px,.7fr)_auto] sm:gap-6"><span>Project</span><span>Delivery</span><span>Financials</span><span>Team</span></div>{visibleProjects.length ? visibleProjects.map((project) => <ProjectCard key={project.id} project={project} />) : <div className="py-16 text-center text-sm text-[#87847d]">No projects match your search.</div>}</div>
+            <div className="mt-10 flex flex-col gap-4 border-b border-[#ddd9d0] pb-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-1 overflow-x-auto">{(["All", "Active", "Completed", "On Hold"] as const).map((item) => <button key={item} onClick={() => { setFilter(item); trackEvent("filter_used", { page: "projects", filter: item }); }} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${filter === item ? "bg-[#292928] text-white" : "text-[#87847d] hover:bg-[#ebe8e1]"}`}>{item}</button>)}</div><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#aaa59b]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects" className="h-9 w-full rounded-lg border border-[#ddd9d0] bg-white pl-9 pr-8 text-xs outline-none focus:border-[#d6593f] sm:w-52" /><ChevronDown className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 rotate-[-90deg] text-[#aaa59b]" /></div></div>
+            <div className="mt-2 rounded-2xl border border-[#e4e0d8] bg-white px-5 sm:px-6"><div className="hidden border-b border-[#ebe8e1] py-4 text-[10px] font-bold uppercase tracking-[.15em] text-[#aaa59b] sm:grid sm:grid-cols-[minmax(0,1.5fr)_minmax(180px,1fr)_minmax(150px,.7fr)_auto] sm:gap-6"><span>Project</span><span>Delivery</span><span>Financials</span><span>Team</span></div>{visibleProjects.length ? visibleProjects.map((project) => <ProjectCard key={project.id} project={project} onComplete={completeProject} />) : <div className="py-16 text-center text-sm text-[#87847d]">No projects match your search.</div>}</div>
           </div>
         </section>
       </div>
