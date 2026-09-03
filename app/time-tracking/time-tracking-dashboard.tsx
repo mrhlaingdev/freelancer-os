@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, Clock3, Play, Plus, Square, Sparkles, Trash2 } from "lucide-react";
+import { CalendarDays, Clock3, Play, Plus, Square, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 
@@ -18,7 +18,7 @@ export default function TimeTrackingDashboard() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
-  useEffect(() => { const saved = window.localStorage.getItem("powerhouse-time-entries"); if (saved) setEntries(JSON.parse(saved)); }, []);
+  useEffect(() => { const saved = window.localStorage.getItem("powerhouse-time-entries"); if (saved) window.setTimeout(() => setEntries(JSON.parse(saved)), 0); }, []);
   useEffect(() => { window.localStorage.setItem("powerhouse-time-entries", JSON.stringify(entries)); }, [entries]);
   useEffect(() => { if (!running || !startedAt) return; const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1000); return () => window.clearInterval(timer); }, [running, startedAt]);
   const totalMinutes = entries.reduce((sum, entry) => sum + entry.minutes, 0);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Check, CircleDollarSign, Download, FileText, MoreHorizontal, Plus, Search, Sparkles } from "lucide-react";
+import { Check, Download, FileText, MoreHorizontal, Plus, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { trackEvent } from "@/lib/analytics";
@@ -23,7 +23,7 @@ export default function InvoicesDashboard() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem("powerhouse-invoices");
-    if (saved) setInvoices(JSON.parse(saved));
+    if (saved) window.setTimeout(() => setInvoices(JSON.parse(saved)), 0);
   }, []);
   useEffect(() => { window.localStorage.setItem("powerhouse-invoices", JSON.stringify(invoices)); }, [invoices]);
 

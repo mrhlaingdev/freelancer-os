@@ -108,9 +108,11 @@ export default function ProjectsDashboard() {
 
   useEffect(() => {
     const saved = window.localStorage.getItem("powerhouse-projects");
-    if (saved) setProjects(JSON.parse(saved));
-    setHydrated(true);
-    trackEvent("dashboard_viewed", { page: "projects" });
+    window.setTimeout(() => {
+      if (saved) setProjects(JSON.parse(saved));
+      setHydrated(true);
+      trackEvent("dashboard_viewed", { page: "projects" });
+    }, 0);
   }, []);
 
   useEffect(() => {
